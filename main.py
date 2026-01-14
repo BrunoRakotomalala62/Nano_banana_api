@@ -24,10 +24,11 @@ def get_task_result(task_id):
             )
             if response.status_code == 200:
                 data = response.json()
-                # Based on docs, check for resultImageUrl
-                info = data.get("data", {}).get("info", {})
-                if info.get("resultImageUrl"):
-                    return data
+                # Check for resultImageUrl inside data['data']['info']
+                if isinstance(data, dict):
+                    info = data.get("data", {}).get("info")
+                    if isinstance(info, dict) and info.get("resultImageUrl"):
+                        return data
             time.sleep(2)
         except Exception:
             pass
@@ -73,23 +74,26 @@ def nanobanana():
         
         if submit_response.status_code == 200:
             submit_data = submit_response.json()
-            task_id = submit_data.get("data", {}).get("taskId")
-            
-            if not task_id:
-                return jsonify({
-                    "error": "Failed to get taskId from Nano Banana API",
-                    "details": submit_data
-                }), 500
+            if isinstance(submit_data, dict):
+                task_id = submit_data.get("data", {}).get("taskId")
                 
-            # Wait for completion (polling)
-            result = get_task_result(task_id)
-            if result:
-                return jsonify(result)
+                if not task_id:
+                    return jsonify({
+                        "error": "Failed to get taskId from Nano Banana API",
+                        "details": submit_data
+                    }), 500
+                    
+                # Wait for completion (polling)
+                result = get_task_result(task_id)
+                if result:
+                    return jsonify(result)
+                else:
+                    return jsonify({
+                        "error": "Timeout waiting for image generation",
+                        "taskId": task_id
+                    }), 504
             else:
-                return jsonify({
-                    "error": "Timeout waiting for image generation",
-                    "taskId": task_id
-                }), 504
+                return jsonify({"error": "Unexpected response format from Nano Banana API", "details": str(submit_data)}), 500
         else:
             return jsonify({
                 "error": "Failed to submit task to Nano Banana API",
