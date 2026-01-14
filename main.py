@@ -13,7 +13,7 @@ BASE_URL = "https://api.nanobananaapi.ai/api/v1/nanobanana"
 
 def get_task_result(task_id):
     """Poll for task completion"""
-    max_attempts = 30
+    max_attempts = 45  # Increased polling time
     for _ in range(max_attempts):
         try:
             response = requests.get(
@@ -24,9 +24,16 @@ def get_task_result(task_id):
             )
             if response.status_code == 200:
                 data = response.json()
-                # Check for resultImageUrl inside data['data']['info']
+                # Check for success in the response structure
                 if isinstance(data, dict):
+                    # Check the success flag or result image
+                    success = data.get("successFlag") == 1 or data.get("code") == 200
+                    
+                    # Look for info in multiple possible locations
                     info = data.get("data", {}).get("info")
+                    if not info:
+                         info = data.get("response") or data.get("info")
+                    
                     if isinstance(info, dict) and info.get("resultImageUrl"):
                         return data
             time.sleep(2)
@@ -55,9 +62,11 @@ def nanobanana():
     # Call Nano Banana API
     payload = {
         "prompt": prompt,
-        "type": "IMAGETOIMAGE",
+        "type": "IMAGETOIAMGE",
         "imageUrls": [image_url],
-        "numImages": 1
+        "numImages": 1,
+        "imageSize": "1:1",
+        "watermark": ""
     }
 
     try:
@@ -73,9 +82,18 @@ def nanobanana():
         )
         
         if submit_response.status_code == 200:
-            submit_data = submit_response.json()
+            try:
+                submit_data = submit_response.json()
+            except Exception as e:
+                return jsonify({"error": "Failed to parse JSON response from Nano Banana API", "details": str(e), "raw": submit_response.text}), 500
+
             if isinstance(submit_data, dict):
-                task_id = submit_data.get("data", {}).get("taskId")
+                # Handle different possible response structures
+                data_obj = submit_data.get("data")
+                if isinstance(data_obj, dict):
+                    task_id = data_obj.get("taskId")
+                else:
+                    task_id = submit_data.get("taskId")
                 
                 if not task_id:
                     return jsonify({
