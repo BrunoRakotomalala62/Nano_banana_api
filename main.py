@@ -135,7 +135,7 @@ def kie_api():
         return jsonify({"error": "No image provided"}), 400
 
     payload = {
-        "model": "grok-imagine/image-to-image",
+        "model": "seedream/4.5-edit",
         "input": {
             "prompt": prompt,
             "image_urls": [image_url]
@@ -168,12 +168,4 @@ def index():
     return "API Proxy is running. Endpoints: /nanobanana, /kie"
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
-
-@app.route('/')
-def index():
-    return "Nano Banana API Proxy is running. Use /nanobanana?prompt=...&image=...&uid=..."
-
-if __name__ == '__main__':
-    # Bind to 0.0.0.0:5000 as per Replit requirements
     app.run(host='0.0.0.0', port=5000)
