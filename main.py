@@ -34,7 +34,7 @@ def get_next_nano_key():
 
 def poll_nano_task(task_id, api_key):
     """Poll for Nano Banana task completion"""
-    max_attempts = 60  # Increased attempts
+    max_attempts = 60
     for _ in range(max_attempts):
         try:
             response = requests.get(
@@ -48,18 +48,26 @@ def poll_nano_task(task_id, api_key):
                 # Debug logging
                 print(f"Nano polling data: {data}")
                 
-                info = data.get("data", {}).get("info") or data.get("response") or data.get("info")
-                if isinstance(info, dict) and info.get("resultImageUrl"):
-                    return {"resultats_url": info.get("resultImageUrl")}
-                
-                # Check directly in data.data or data
+                # Check for failure in the response itself
+                if data.get("code") != 200 and data.get("code") != 0:
+                    return {"error": data.get("msg", "API Error"), "code": data.get("code")}
+
                 res_data = data.get("data")
-                if isinstance(res_data, dict) and res_data.get("resultImageUrl"):
-                    return {"resultats_url": res_data.get("resultImageUrl")}
+                if isinstance(res_data, dict):
+                    # Check for resultImageUrl in response object
+                    info = res_data.get("response") or res_data.get("info")
+                    if isinstance(info, dict) and info.get("resultImageUrl"):
+                        return {"resultats_url": info.get("resultImageUrl")}
+                    
+                    # Check directly in data
+                    if res_data.get("resultImageUrl"):
+                        return {"resultats_url": res_data.get("resultImageUrl")}
+                
+                # Top level check
                 if data.get("resultImageUrl"):
                     return {"resultats_url": data.get("resultImageUrl")}
                     
-            time.sleep(1.5) # Slightly faster polling
+            time.sleep(1.5)
         except Exception as e:
             print(f"Polling error: {e}")
             pass
