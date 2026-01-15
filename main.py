@@ -38,7 +38,7 @@ def poll_nano_task(task_id):
 
 def poll_kie_task(task_id):
     """Poll for Kie.ai task completion"""
-    max_attempts = 60 # Increased polling time for Kie
+    max_attempts = 60
     for _ in range(max_attempts):
         try:
             response = requests.get(
@@ -49,16 +49,24 @@ def poll_kie_task(task_id):
             )
             if response.status_code == 200:
                 data = response.json()
+                if not data:
+                    time.sleep(2)
+                    continue
                 
-                # Check multiple potential result locations based on common Kie structures
-                res_data = data.get("data", {})
+                # Check for error in response
+                if data.get("code") is not None and data.get("code") != 0 and data.get("msg"):
+                    print(f"Kie API Error: {data.get('msg')}")
+                    return data
+
+                # Check multiple potential result locations
+                res_data = data.get("data")
                 if isinstance(res_data, dict):
-                    # Check in data.response or data.info
+                    # In some versions it's data.response.resultImageUrl
                     res = res_data.get("response") or res_data.get("info")
                     if isinstance(res, dict) and res.get("resultImageUrl"):
                         return data
                     
-                    # Some versions might put result directly in data
+                    # In others it's data.resultImageUrl
                     if res_data.get("resultImageUrl"):
                         return data
                 
@@ -66,8 +74,8 @@ def poll_kie_task(task_id):
                 if data.get("resultImageUrl"):
                     return data
             time.sleep(2)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Kie Polling error: {e}")
     return None
 
 @app.route('/nanobanana', methods=['GET'])
@@ -109,7 +117,9 @@ def nanobanana():
         
         if submit_response.status_code == 200:
             submit_data = submit_response.json()
-            task_id = submit_data.get("data", {}).get("taskId") or submit_data.get("taskId")
+            if not submit_data:
+                return jsonify({"error": "Empty response from API"}), 500
+            task_id = submit_data.get("data", {}).get("taskId") if isinstance(submit_data.get("data"), dict) else submit_data.get("taskId")
             if task_id:
                 result = poll_nano_task(task_id)
                 return jsonify(result) if result else jsonify({"error": "Timeout", "taskId": task_id}), 504
@@ -138,7 +148,7 @@ def kie_api():
         "model": "seedream/4.5-edit",
         "input": {
             "prompt": prompt,
-            "image_urls": [image_url]
+            "image": image_url
         }
     }
 
@@ -155,7 +165,19 @@ def kie_api():
         
         if submit_response.status_code == 200:
             submit_data = submit_response.json()
-            task_id = submit_data.get("data", {}).get("taskId")
+            if not submit_data:
+                return jsonify({"error": "Empty response from API"}), 500
+            
+            # Special check for Kie API status within 200 response
+            if submit_data.get("code") != 0:
+                return jsonify({"error": "Kie API error", "details": submit_data}), 400
+
+            task_id = None
+            if isinstance(submit_data.get("data"), dict):
+                task_id = submit_data.get("data").get("taskId")
+            else:
+                task_id = submit_data.get("taskId")
+
             if task_id:
                 result = poll_kie_task(task_id)
                 return jsonify(result) if result else jsonify({"error": "Timeout", "taskId": task_id}), 504
