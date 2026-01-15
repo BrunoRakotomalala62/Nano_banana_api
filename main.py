@@ -34,7 +34,7 @@ def get_next_nano_key():
 
 def poll_nano_task(task_id, api_key):
     """Poll for Nano Banana task completion"""
-    max_attempts = 45
+    max_attempts = 60  # Increased attempts
     for _ in range(max_attempts):
         try:
             response = requests.get(
@@ -45,11 +45,23 @@ def poll_nano_task(task_id, api_key):
             )
             if response.status_code == 200:
                 data = response.json()
+                # Debug logging
+                print(f"Nano polling data: {data}")
+                
                 info = data.get("data", {}).get("info") or data.get("response") or data.get("info")
                 if isinstance(info, dict) and info.get("resultImageUrl"):
-                    return data
-            time.sleep(2)
-        except Exception:
+                    return {"resultats_url": info.get("resultImageUrl")}
+                
+                # Check directly in data.data or data
+                res_data = data.get("data")
+                if isinstance(res_data, dict) and res_data.get("resultImageUrl"):
+                    return {"resultats_url": res_data.get("resultImageUrl")}
+                if data.get("resultImageUrl"):
+                    return {"resultats_url": data.get("resultImageUrl")}
+                    
+            time.sleep(1.5) # Slightly faster polling
+        except Exception as e:
+            print(f"Polling error: {e}")
             pass
     return None
 
@@ -81,21 +93,19 @@ def poll_kie_task(task_id):
                     # In some versions it's data.response.resultImageUrl
                     res = res_data.get("response") or res_data.get("info")
                     if isinstance(res, dict) and res.get("resultImageUrl"):
-                        return data
+                        return {"resultats_url": res.get("resultImageUrl")}
                     
                     # Check for result images in standard Kie arrays
                     if res_data.get("images") and isinstance(res_data["images"], list) and len(res_data["images"]) > 0:
-                        # Normalize to common format
-                        data["resultImageUrl"] = res_data["images"][0]
-                        return data
+                        return {"resultats_url": res_data["images"][0]}
                     
                     # In others it's data.resultImageUrl
                     if res_data.get("resultImageUrl"):
-                        return data
+                        return {"resultats_url": res_data.get("resultImageUrl")}
                 
                 # Check top level
                 if data.get("resultImageUrl"):
-                    return data
+                    return {"resultats_url": data.get("resultImageUrl")}
             time.sleep(2)
         except Exception as e:
             print(f"Kie Polling error: {e}")
