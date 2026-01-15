@@ -8,15 +8,16 @@ app = Flask(__name__)
 # In-memory store for tracking the last image per uid
 user_history = {}
 
-# API Keys from environment
-def get_nano_keys():
-    try:
-        with open("api.txt", "r") as f:
-            return [line.strip() for line in f if line.strip()]
-    except Exception:
-        return []
-
-nano_keys = get_nano_keys()
+# API Keys list
+nano_keys = [
+    "4603e4f0febe2137d2b61a2445876c81",
+    "44529f05230cc84b901fbf642b6747e1",
+    "1150119bebb0ff7a8874366468a27508",
+    "f434f443c9f6de5edcfc41269095fb74",
+    "ba92878f6d170ab97462f6c7a7ab8245",
+    "6f9c3c2b42ff4740971d77e21e004208",
+    "c3ba79743a9093729a685c0f78b524ff"
+]
 nano_key_index = 0
 
 KIE_API_KEY = os.environ.get("KIE_API_KEY")
@@ -45,8 +46,6 @@ def poll_nano_task(task_id, api_key):
             )
             if response.status_code == 200:
                 data = response.json()
-                # Debug logging
-                print(f"Nano polling data: {data}")
                 
                 # Check for failure in the response itself
                 if data.get("code") != 200 and data.get("code") != 0:
@@ -67,9 +66,8 @@ def poll_nano_task(task_id, api_key):
                 if data.get("resultImageUrl"):
                     return {"resultats_url": data.get("resultImageUrl")}
                     
-            time.sleep(1.5)
-        except Exception as e:
-            print(f"Polling error: {e}")
+            time.sleep(1.0) # Reduced from 1.5s for faster response
+        except Exception:
             pass
     return None
 
