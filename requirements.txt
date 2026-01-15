@@ -4,3 +4,6 @@ gunicorn==22.0.0
 flask
 gunicorn
 requests
+Flask
+gunicorn
+requests
