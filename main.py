@@ -25,15 +25,16 @@ KIE_API_KEY = os.environ.get("KIE_API_KEY")
 NANO_BASE_URL = "https://api.nanobananaapi.ai/api/v1/nanobanana"
 KIE_BASE_URL = "https://api.kie.ai/api/v1/jobs"
 
-def get_next_nano_key():
+def get_next_nano_key_info():
     global nano_key_index
     if not nano_keys:
-        return None
+        return None, None
     key = nano_keys[nano_key_index]
+    label = f"API{nano_key_index + 1}"
     nano_key_index = (nano_key_index + 1) % len(nano_keys)
-    return key
+    return key, label
 
-def poll_nano_task(task_id, api_key):
+def poll_nano_task(task_id, api_key, api_label):
     """Poll for Nano Banana task completion"""
     max_attempts = 60
     for _ in range(max_attempts):
@@ -49,22 +50,22 @@ def poll_nano_task(task_id, api_key):
                 
                 # Check for failure in the response itself
                 if data.get("code") != 200 and data.get("code") != 0:
-                    return {"error": data.get("msg", "API Error"), "code": data.get("code")}
+                    return {"error": data.get("msg", "API Error"), "code": data.get("code"), "api_used": api_label}
 
                 res_data = data.get("data")
                 if isinstance(res_data, dict):
                     # Check for resultImageUrl in response object
                     info = res_data.get("response") or res_data.get("info")
                     if isinstance(info, dict) and info.get("resultImageUrl"):
-                        return {"resultats_url": info.get("resultImageUrl")}
+                        return {"resultats_url": info.get("resultImageUrl"), "api_used": api_label}
                     
                     # Check directly in data
                     if res_data.get("resultImageUrl"):
-                        return {"resultats_url": res_data.get("resultImageUrl")}
+                        return {"resultats_url": res_data.get("resultImageUrl"), "api_used": api_label}
                 
                 # Top level check
                 if data.get("resultImageUrl"):
-                    return {"resultats_url": data.get("resultImageUrl")}
+                    return {"resultats_url": data.get("resultImageUrl"), "api_used": api_label}
                     
             time.sleep(1.0) # Reduced from 1.5s for faster response
         except Exception:
@@ -148,7 +149,7 @@ def nanobanana():
     max_keys = len(nano_keys)
     
     while attempts < max_keys:
-        current_key = get_next_nano_key()
+        current_key, current_label = get_next_nano_key_info()
         if not current_key:
             return jsonify({"error": "No API keys available"}), 500
             
@@ -170,8 +171,8 @@ def nanobanana():
                     continue
                 task_id = submit_data.get("data", {}).get("taskId") if isinstance(submit_data.get("data"), dict) else submit_data.get("taskId")
                 if task_id:
-                    result = poll_nano_task(task_id, current_key)
-                    return jsonify(result) if result else jsonify({"error": "Timeout", "taskId": task_id}), 504
+                    result = poll_nano_task(task_id, current_key, current_label)
+                    return jsonify(result) if result else jsonify({"error": "Timeout", "taskId": task_id, "api_used": current_label}), 504
             
             # Check for quota or credit error (402, 403, 429) to rotate
             if submit_response.status_code in [402, 403, 429]:
@@ -187,7 +188,7 @@ def nanobanana():
             except:
                 pass
 
-            return jsonify({"error": "Submit failed", "details": submit_response.text}), submit_response.status_code
+            return jsonify({"error": "Submit failed", "details": submit_response.text, "api_used": current_label}), submit_response.status_code
                 
         except Exception as e:
             attempts += 1
