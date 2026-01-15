@@ -54,7 +54,7 @@ def poll_kie_task(task_id):
                     continue
                 
                 # Check for error in response
-                if data.get("code") is not None and data.get("code") != 0 and data.get("msg"):
+                if data.get("code") is not None and data.get("code") not in [0, 200] and data.get("msg"):
                     print(f"Kie API Error: {data.get('msg')}")
                     return data
 
@@ -64,6 +64,12 @@ def poll_kie_task(task_id):
                     # In some versions it's data.response.resultImageUrl
                     res = res_data.get("response") or res_data.get("info")
                     if isinstance(res, dict) and res.get("resultImageUrl"):
+                        return data
+                    
+                    # Check for result images in standard Kie arrays
+                    if res_data.get("images") and isinstance(res_data["images"], list) and len(res_data["images"]) > 0:
+                        # Normalize to common format
+                        data["resultImageUrl"] = res_data["images"][0]
                         return data
                     
                     # In others it's data.resultImageUrl
@@ -148,7 +154,9 @@ def kie_api():
         "model": "seedream/4.5-edit",
         "input": {
             "prompt": prompt,
-            "image": image_url
+            "image_urls": [image_url],
+            "aspect_ratio": "1:1",
+            "quality": "basic"
         }
     }
 
@@ -169,12 +177,12 @@ def kie_api():
                 return jsonify({"error": "Empty response from API"}), 500
             
             # Special check for Kie API status within 200 response
-            if submit_data.get("code") != 0:
+            if submit_data.get("code") != 200 and submit_data.get("code") != 0:
                 return jsonify({"error": "Kie API error", "details": submit_data}), 400
 
             task_id = None
             if isinstance(submit_data.get("data"), dict):
-                task_id = submit_data.get("data").get("taskId")
+                task_id = submit_data.get("data").get("taskId") or submit_data.get("data").get("recordId")
             else:
                 task_id = submit_data.get("taskId")
 
