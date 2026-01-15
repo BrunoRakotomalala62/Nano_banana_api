@@ -173,12 +173,21 @@ def nanobanana():
                     result = poll_nano_task(task_id, current_key)
                     return jsonify(result) if result else jsonify({"error": "Timeout", "taskId": task_id}), 504
             
-            # Check for quota error (usually 403 or 429) or other errors to rotate
-            if submit_response.status_code in [403, 429]:
+            # Check for quota or credit error (402, 403, 429) to rotate
+            if submit_response.status_code in [402, 403, 429]:
                 attempts += 1
                 continue
-            else:
-                return jsonify({"error": "Submit failed", "details": submit_response.text}), submit_response.status_code
+            
+            # Additional check for 200 responses that contain error codes like 402 in JSON
+            try:
+                error_data = submit_response.json()
+                if isinstance(error_data, dict) and error_data.get("code") == 402:
+                    attempts += 1
+                    continue
+            except:
+                pass
+
+            return jsonify({"error": "Submit failed", "details": submit_response.text}), submit_response.status_code
                 
         except Exception as e:
             attempts += 1
