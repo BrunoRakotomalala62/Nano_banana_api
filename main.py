@@ -9,20 +9,37 @@ app = Flask(__name__)
 user_history = {}
 
 # API Keys from environment
-NANO_API_KEY = os.environ.get("API_KEYS_1")
+def get_nano_keys():
+    try:
+        with open("api.txt", "r") as f:
+            return [line.strip() for line in f if line.strip()]
+    except Exception:
+        return []
+
+nano_keys = get_nano_keys()
+nano_key_index = 0
+
 KIE_API_KEY = os.environ.get("KIE_API_KEY")
 
 NANO_BASE_URL = "https://api.nanobananaapi.ai/api/v1/nanobanana"
 KIE_BASE_URL = "https://api.kie.ai/api/v1/jobs"
 
-def poll_nano_task(task_id):
+def get_next_nano_key():
+    global nano_key_index
+    if not nano_keys:
+        return None
+    key = nano_keys[nano_key_index]
+    nano_key_index = (nano_key_index + 1) % len(nano_keys)
+    return key
+
+def poll_nano_task(task_id, api_key):
     """Poll for Nano Banana task completion"""
     max_attempts = 45
     for _ in range(max_attempts):
         try:
             response = requests.get(
                 f"{NANO_BASE_URL}/record-info",
-                headers={"Authorization": f"Bearer {NANO_API_KEY}"},
+                headers={"Authorization": f"Bearer {api_key}"},
                 params={"taskId": task_id},
                 timeout=10
             )
@@ -110,28 +127,49 @@ def nanobanana():
         "watermark": ""
     }
 
-    try:
-        submit_response = requests.post(
-            f"{NANO_BASE_URL}/generate",
-            json=payload,
-            headers={
-                "Authorization": f"Bearer {NANO_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            timeout=30
-        )
-        
-        if submit_response.status_code == 200:
-            submit_data = submit_response.json()
-            if not submit_data:
-                return jsonify({"error": "Empty response from API"}), 500
-            task_id = submit_data.get("data", {}).get("taskId") if isinstance(submit_data.get("data"), dict) else submit_data.get("taskId")
-            if task_id:
-                result = poll_nano_task(task_id)
-                return jsonify(result) if result else jsonify({"error": "Timeout", "taskId": task_id}), 504
-        return jsonify({"error": "Submit failed", "details": submit_response.text}), submit_response.status_code
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    # Try keys in rotation
+    attempts = 0
+    max_keys = len(nano_keys)
+    
+    while attempts < max_keys:
+        current_key = get_next_nano_key()
+        if not current_key:
+            return jsonify({"error": "No API keys available"}), 500
+            
+        try:
+            submit_response = requests.post(
+                f"{NANO_BASE_URL}/generate",
+                json=payload,
+                headers={
+                    "Authorization": f"Bearer {current_key}",
+                    "Content-Type": "application/json"
+                },
+                timeout=30
+            )
+            
+            if submit_response.status_code == 200:
+                submit_data = submit_response.json()
+                if not submit_data:
+                    attempts += 1
+                    continue
+                task_id = submit_data.get("data", {}).get("taskId") if isinstance(submit_data.get("data"), dict) else submit_data.get("taskId")
+                if task_id:
+                    result = poll_nano_task(task_id, current_key)
+                    return jsonify(result) if result else jsonify({"error": "Timeout", "taskId": task_id}), 504
+            
+            # Check for quota error (usually 403 or 429) or other errors to rotate
+            if submit_response.status_code in [403, 429]:
+                attempts += 1
+                continue
+            else:
+                return jsonify({"error": "Submit failed", "details": submit_response.text}), submit_response.status_code
+                
+        except Exception as e:
+            attempts += 1
+            if attempts >= max_keys:
+                return jsonify({"error": str(e)}), 500
+    
+    return jsonify({"error": "All API keys exhausted or failed"}), 429
 
 @app.route('/kie', methods=['GET'])
 def kie_api():
