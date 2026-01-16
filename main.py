@@ -16,7 +16,23 @@ nano_keys = [
     "f434f443c9f6de5edcfc41269095fb74",
     "ba92878f6d170ab97462f6c7a7ab8245",
     "6f9c3c2b42ff4740971d77e21e004208",
-    "c3ba79743a9093729a685c0f78b524ff"
+    "c3ba79743a9093729a685c0f78b524ff",
+    
+"f05e95578ebf98eae1513481a360bb5b",
+
+"e654dd8c8e8e90b8c1cb337dbc4d7ad6",
+
+"3f5cba5262dd27984dbf17cb2f80fd90",
+
+"ff19d714b0997907be9de3f2007f944e",
+
+"87b94e9ca520e45fba5668a645fb5d42",
+
+"97557efa267f1ecabca345d4d8b1d272",
+
+"5a9605aa8a453d666ca3a42a43f68f9e",
+
+"2ae2fa97faf4fdc71de2fd5a51d7eeb1"
 ]
 nano_key_index = 0
 
@@ -255,7 +271,15 @@ def kie_api():
                 return jsonify(result) if result else jsonify({"error": "Timeout", "taskId": task_id}), 504
         return jsonify({"error": "Submit failed", "details": submit_response.text}), submit_response.status_code
     except Exception as e:
+        print(f"Kie API Error: {e}")
         return jsonify({"error": str(e)}), 500
+
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/')
 def index():
