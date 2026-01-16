@@ -17,7 +17,6 @@ nano_keys = [
     "ba92878f6d170ab97462f6c7a7ab8245",
     "6f9c3c2b42ff4740971d77e21e004208",
     "c3ba79743a9093729a685c0f78b524ff",
-    "d1a755e52975441f6faf0c6b7d5fc4dc",
 "f05e95578ebf98eae1513481a360bb5b",
 
 "e654dd8c8e8e90b8c1cb337dbc4d7ad6",
@@ -34,7 +33,8 @@ nano_keys = [
 "f1226514bcfe5900a8addd5af1291ce2",
 
 "5a9605aa8a453d666ca3a42a43f68f9e",
-
+"dc5ea87ee94a54d7c4c12b7e910d16c6",
+"d1a755e52975441f6faf0c6b7d5fc4dc",
 "2ae2fa97faf4fdc71de2fd5a51d7eeb1"
 ]
 nano_key_index = 0
