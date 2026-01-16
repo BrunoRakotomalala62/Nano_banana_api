@@ -30,6 +30,9 @@ nano_keys = [
 
 "97557efa267f1ecabca345d4d8b1d272",
 
+"457f0061c9449372ec151886ce5ba395",
+    "f1226514bcfe5900a8addd5af1291ce2",
+
 "5a9605aa8a453d666ca3a42a43f68f9e",
 
 "2ae2fa97faf4fdc71de2fd5a51d7eeb1"
@@ -268,18 +271,12 @@ def kie_api():
 
             if task_id:
                 result = poll_kie_task(task_id)
-                return jsonify(result) if result else jsonify({"error": "Timeout", "taskId": task_id}), 504
+                if result:
+                    result["api_used"] = "KIE_AI"
+                return jsonify(result) if result else jsonify({"error": "Timeout", "taskId": task_id, "api_used": "KIE_AI"}), 504
         return jsonify({"error": "Submit failed", "details": submit_response.text}), submit_response.status_code
     except Exception as e:
-        print(f"Kie API Error: {e}")
         return jsonify({"error": str(e)}), 500
-
-@app.after_request
-def add_header(response):
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    return response
 
 @app.route('/')
 def index():
