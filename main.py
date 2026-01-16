@@ -49,7 +49,7 @@ def get_next_nano_key_info():
     if not nano_keys:
         return None, None
     key = nano_keys[nano_key_index]
-    label = f"API{nano_key_index + 1}"
+    label = f"API{nano_key_index + 1}={key}"
     nano_key_index = (nano_key_index + 1) % len(nano_keys)
     return key, label
 
