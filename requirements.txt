@@ -9,3 +9,6 @@ gunicorn
 requests
 flask
 requests
+flask
+gunicorn
+requests
